@@ -2,6 +2,7 @@ package is.swan.mcmarketapi.utils;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import is.swan.mcmarketapi.Token;
 import is.swan.mcmarketapi.request.Error;
 import is.swan.mcmarketapi.request.Response;
@@ -102,28 +103,29 @@ public class HTTPUtil {
     }
 
     private static <V> Response<V> getResponse(okhttp3.Response httpResponse) {
-        Response<V> response = null;
+        String requestResponse = null;
         try {
-            response = new Response<>(httpResponse.body().string());
+            requestResponse      = httpResponse.body().string();
         } catch (IOException e) {
             e.printStackTrace();
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("error", e.getClass().getName());
+            jsonObject.addProperty("message", e.getMessage());
+            requestResponse = jsonObject.toString();
         }
+        Response<V> response = new Response<V>(requestResponse);
         if (httpResponse.headers("Retry-After").size() > 0) {
             response.setRatelimited(true);
             response.setMillisecondsToWait(Integer.parseInt(httpResponse.headers("Retry-After").get(0)));
         } else {
-            try {
-                JsonElement jsonElement = GSON.fromJson(httpResponse.body().string(), JsonElement.class);
-                String result = jsonElement.getAsJsonObject().get("result").getAsString();
+            JsonElement jsonElement = GSON.fromJson(requestResponse, JsonElement.class);
+            String result = jsonElement.getAsJsonObject().get("result").getAsString();
 
-                if (result.equals("error")) {
-                    String errorJson = jsonElement.getAsJsonObject().get("error").getAsJsonObject().toString();
-                    Error error = GSON.fromJson(errorJson, Error.class);
+            if (result.equals("error")) {
+                String errorJson = jsonElement.getAsJsonObject().get("error").getAsJsonObject().toString();
+                Error error = GSON.fromJson(errorJson, Error.class);
 
-                    response.setError(error);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+                response.setError(error);
             }
         }
         return response;
