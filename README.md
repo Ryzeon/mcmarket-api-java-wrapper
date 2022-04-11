@@ -6,7 +6,7 @@
 # mcmarket-api-java-wrapper
 
 
-This is a complete and easy-to-use Java wrapper for the [MC-Market Ultimate API](https://www.mc-market.org/wiki/ultimate-api/) built with Java SE Development Kit 17.0.1.
+This is a complete and easy-to-use Java wrapper for the [MC-Market Ultimate API](https://www.mc-market.org/wiki/ultimate-api/) built with Java SE Development Kit 8.
 
 # Sending a request
 ```java

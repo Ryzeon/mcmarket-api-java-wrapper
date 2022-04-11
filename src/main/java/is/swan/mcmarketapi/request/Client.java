@@ -64,11 +64,16 @@ public class Client {
     }
 
     private <V> Response<V> getResponse(Request<V> request) {
-        return switch (request.getMethod()) {
-            case GET -> HTTPUtil.get(request.getURL(), token);
-            case POST -> HTTPUtil.post(request.getURL(), request.getBody(), token);
-            case DELETE -> HTTPUtil.delete(request.getURL(), token);
-            case PATCH -> HTTPUtil.patch(request.getURL(), request.getBody(), token);
-        };
+        switch (request.getMethod()) {
+            case GET:
+                return HTTPUtil.get(request.getURL(), token);
+            case POST:
+                return HTTPUtil.post(request.getURL(), request.getBody(), token);
+            case DELETE:
+                return HTTPUtil.delete(request.getURL(), token);
+            case PATCH:
+                return HTTPUtil.patch(request.getURL(), request.getBody(), token);
+        }
+        throw new IllegalArgumentException("Invalid method");
     }
 }

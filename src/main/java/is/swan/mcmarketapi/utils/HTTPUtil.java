@@ -5,101 +5,127 @@ import com.google.gson.JsonElement;
 import is.swan.mcmarketapi.Token;
 import is.swan.mcmarketapi.request.Error;
 import is.swan.mcmarketapi.request.Response;
+import okhttp3.*;
+import sun.net.www.http.HttpClient;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 
 public class HTTPUtil {
 
-    private static final HttpClient CLIENT = HttpClient.newHttpClient();
+    private static final OkHttpClient client = new OkHttpClient.Builder().build();
     private static final Gson GSON = new Gson();
 
+    private static final MediaType mediaType = MediaType.parse("application/json; charset=utf-8");
+
     public static <V> Response<V> get(String url, Token token) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", token.toString())
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", token.toString())
+                .addHeader("Content-Type", "application/json")
                 .build();
 
         try {
-            HttpResponse<String> httpResponse = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-
-            return getResponse(httpResponse);
-        } catch (IOException | InterruptedException e) {
+            Call call = client.newCall(request);
+            okhttp3.Response response = call.execute();
+            if (response.isSuccessful()) {
+                return getResponse(response);
+            } else {
+                return new Response<V>("").setError(new Error(String.valueOf(response.code()), response.message()));
+            }
+        } catch (IOException e) {
             return new Response<V>("").setError(new Error(e.getClass().getName(), e.getMessage()));
         }
     }
 
     public static <V> Response<V> post(String url, String body, Token token) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .uri(URI.create(url))
-                .header("Authorization", token.toString())
-                .header("Content-Type", "application/json")
+        RequestBody requestBody = RequestBody.create(mediaType, body);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", token.toString())
+                .addHeader("Content-Type", "application/json")
+                .post(requestBody)
                 .build();
 
         try {
-            HttpResponse<String> httpResponse = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-
-            return getResponse(httpResponse);
-        } catch (IOException | InterruptedException e) {
+            Call call = client.newCall(request);
+            okhttp3.Response response = call.execute();
+            if (response.isSuccessful()) {
+                return getResponse(response);
+            } else {
+                return new Response<V>("").setError(new Error(String.valueOf(response.code()), response.message()));
+            }
+        } catch (IOException e) {
             return new Response<V>("").setError(new Error(e.getClass().getName(), e.getMessage()));
         }
     }
 
     public static <V> Response<V> delete(String url, Token token) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .DELETE()
-                .uri(URI.create(url))
-                .header("Authorization", token.toString())
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", token.toString())
+                .delete()
                 .build();
 
         try {
-            HttpResponse<String> httpResponse = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-
-            return getResponse(httpResponse);
-        } catch (IOException | InterruptedException e) {
+            Call call = client.newCall(request);
+            okhttp3.Response response = call.execute();
+            if (response.isSuccessful()) {
+                return getResponse(response);
+            } else {
+                return new Response<V>("").setError(new Error(String.valueOf(response.code()), response.message()));
+            }
+        } catch (IOException e) {
             return new Response<V>("").setError(new Error(e.getClass().getName(), e.getMessage()));
         }
     }
 
     public static <V> Response<V> patch(String url, String body, Token token) {
-        HttpRequest request = HttpRequest.newBuilder()
-                .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
-                .uri(URI.create(url))
-                .header("Authorization", token.toString())
-                .header("Content-Type", "application/json")
+        RequestBody requestBody = RequestBody.create(mediaType, body);
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("Authorization", token.toString())
+                .patch(requestBody)
                 .build();
 
         try {
-            HttpResponse<String> httpResponse = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-
-            return getResponse(httpResponse);
-        } catch (IOException | InterruptedException e) {
+            Call call = client.newCall(request);
+            okhttp3.Response response = call.execute();
+            if (response.isSuccessful()) {
+                return getResponse(response);
+            } else {
+                return new Response<V>("").setError(new Error(String.valueOf(response.code()), response.message()));
+            }
+        } catch (IOException e) {
             return new Response<V>("").setError(new Error(e.getClass().getName(), e.getMessage()));
         }
     }
 
-    private static <V> Response<V> getResponse(HttpResponse<String> httpResponse) {
-        Response<V> response = new Response<>(httpResponse.body());
-
-        if (httpResponse.headers().firstValue("Retry-After").isPresent()) {
+    private static <V> Response<V> getResponse(okhttp3.Response httpResponse) {
+        Response<V> response = null;
+        try {
+            response = new Response<>(httpResponse.body().string());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (httpResponse.headers("Retry-After").size() > 0) {
             response.setRatelimited(true);
-            response.setMillisecondsToWait(Integer.parseInt(httpResponse.headers().firstValue("Retry-After").get()));
+            response.setMillisecondsToWait(Integer.parseInt(httpResponse.headers("Retry-After").get(0)));
         } else {
-            JsonElement element = GSON.fromJson(httpResponse.body(), JsonElement.class);
-            String result = element.getAsJsonObject().get("result").getAsString();
+            try {
+                JsonElement jsonElement = GSON.fromJson(httpResponse.body().string(), JsonElement.class);
+                String result = jsonElement.getAsJsonObject().get("result").getAsString();
 
-            if (result.equals("error")) {
-                String errorJson = element.getAsJsonObject().get("error").getAsJsonObject().toString();
-                Error error = GSON.fromJson(errorJson, Error.class);
+                if (result.equals("error")) {
+                    String errorJson = jsonElement.getAsJsonObject().get("error").getAsJsonObject().toString();
+                    Error error = GSON.fromJson(errorJson, Error.class);
 
-                response.setError(error);
+                    response.setError(error);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
-
         return response;
     }
 }

@@ -23,8 +23,8 @@ public class Throttler {
     }
 
     private static long stallForHelper(AtomicLong aLastRetry, AtomicLong aLastRequest, long time) {
-        long lastRetry = aLastRetry.getAcquire();
-        long lastRequest = aLastRequest.getAcquire();
+        long lastRetry = aLastRetry.get();
+        long lastRequest = aLastRequest.get();
 
         if (lastRetry > 0 && (time - lastRequest) < lastRetry) {
             return lastRetry - (time - lastRequest);
@@ -34,22 +34,22 @@ public class Throttler {
     }
 
     public void setRead(long value) {
-        readLastRetry.setRelease(value);
-        readLastRequest.setRelease(System.currentTimeMillis());
+        readLastRetry.set(value);
+        readLastRequest.set(System.currentTimeMillis());
     }
 
     public void setWrite(long value) {
-        writeLastRetry.setRelease(value);
-        writeLastRequest.setRelease(System.currentTimeMillis());
+        writeLastRetry.set(value);
+        writeLastRequest.set(System.currentTimeMillis());
     }
 
     public void resetRead() {
-        readLastRetry.setRelease(0);
-        readLastRequest.setRelease(System.currentTimeMillis());
+        readLastRetry.set(0);
+        readLastRequest.set(System.currentTimeMillis());
     }
 
     public void resetWrite() {
-        writeLastRetry.setRelease(0);
-        writeLastRequest.setRelease(System.currentTimeMillis());
+        writeLastRetry.set(0);
+        writeLastRequest.set(System.currentTimeMillis());
     }
 }
